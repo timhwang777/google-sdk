@@ -1,29 +1,57 @@
-# google-service-wrapper-py Development Guidelines
+# CLAUDE.md
 
-Auto-generated from all feature plans. Last updated: 2026-02-23
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Active Technologies
-- Python 3.11+ + httpx, pydantic v2, google-auth, google-auth-oauthlib, respx (test), vcrpy (test) (001-google-api-sdk)
+## What This Is
 
-## Project Structure
-
-```text
-src/
-tests/
-```
+Python SDK (`google-sdk` v0.1.0) wrapping Google Drive, Calendar, and Meet APIs. Built on httpx + Pydantic v2 + google-auth. Python 3.11+.
 
 ## Commands
 
-uv run pytest
-uv run ruff check .
-uv run ruff format .
+```bash
+uv run pytest                # run all tests (261 tests)
+uv run pytest tests/unit/test_client.py          # single file
+uv run pytest tests/unit/test_client.py -k "test_name"  # single test
+uv run ruff check .          # lint
+uv run ruff format .         # format
+uv sync --dev                # install deps
+```
+
+## Architecture
+
+```
+GoogleClient / AsyncGoogleClient  (_client.py)
+  ├── .drive / .calendar / .meet  (lazy @cached_property)
+  │     └── BaseService  (services/_base.py)
+  │           ├── _get/_post/_patch/_put/_delete → httpx
+  │           ├── _raise_for_status → exception mapping
+  │           └── _parse(data, model) → Pydantic validation
+  ├── Transport stack  (_transport/)
+  │     └── RateLimiter → RetryTransport → httpx.HTTPTransport
+  └── Auth  (auth/)
+        ├── service_account() / oauth() / resolve_credentials()
+        └── Token stores: File, Env, Keyring
+```
+
+**Key patterns:**
+- Services inherit `BaseService` which handles auth header injection, credential refresh, error mapping, and Pydantic parsing
+- `PageIterator[T]` / `AsyncPageIterator[T]` provide lazy pagination via callback pattern (`_fetch_page`)
+- Models extend `BaseResource` (Pydantic) with `extra="allow"` and camelCase↔snake_case aliasing
+- Transport layer stacks middleware: rate limiting (token bucket) → retry (exponential backoff + jitter) → httpx
+- `AsyncGoogleClient` has async lifecycle but service methods are synchronous in v0.1.0
+
+**Exception hierarchy:** `GoogleSDKError` → `AuthenticationError` | `TokenStoreError` | `ValidationError` | `APIError` → `NotFoundError`(404) | `PermissionError`(403) | `RateLimitError`(429) | `QuotaExceededError`(429)
 
 ## Code Style
 
-Python 3.11+: Follow standard conventions
+- Line length: 100 chars (ruff)
+- Rule sets: E, F, I, UP, B, SIM
+- Pydantic v2 models with `model_config = ConfigDict(populate_by_name=True)`
 
-## Recent Changes
-- 001-google-api-sdk: Added Python 3.11+ + httpx, pydantic v2, google-auth, google-auth-oauthlib, respx (test), vcrpy (test)
+## Test Structure
 
-<!-- MANUAL ADDITIONS START -->
-<!-- MANUAL ADDITIONS END -->
+- `tests/unit/` — mocked HTTP via respx
+- `tests/contract/` — VCR cassettes
+- `tests/integration/` — live API (requires credentials)
+- `tests/benchmarks/` — performance scripts
+- `tests/conftest.py` — shared fixtures; `tests/factories.py` — test data builders
