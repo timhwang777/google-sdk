@@ -34,14 +34,17 @@ class MeetService(BaseService):
         return self._parse(data, Space)
 
     def get_space(self, space_name: str) -> Space:
+        space_name = space_name.removeprefix("spaces/")
         data = self._get(f"/spaces/{space_name}")
         return self._parse(data, Space)
 
     def update_space(self, space_name: str, **kwargs) -> Space:
+        space_name = space_name.removeprefix("spaces/")
         data = self._patch(f"/spaces/{space_name}", json=kwargs)
         return self._parse(data, Space)
 
     def end_active_conference(self, space_name: str) -> None:
+        space_name = space_name.removeprefix("spaces/")
         self._post(f"/spaces/{space_name}:endActiveConference", json={})
 
     # ── Participant operations ───────────────────────────────────────────────

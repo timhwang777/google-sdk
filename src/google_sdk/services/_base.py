@@ -49,7 +49,7 @@ def _raise_for_status(response: httpx.Response) -> None:
         "request_id": request_id,
     }
 
-    if response.status_code == 404:
+    if response.status_code in (404, 410):
         raise NotFoundError(message, **kwargs)
     if response.status_code == 403:
         raise PermissionError(message, **kwargs)

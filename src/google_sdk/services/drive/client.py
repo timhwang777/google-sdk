@@ -212,7 +212,7 @@ class DriveService(BaseService):
         new_parent: str,
         remove_parents: list[str] | None = None,
     ) -> File:
-        params = {"addParents": new_parent}
+        params = {"addParents": new_parent, "fields": "id,name,mimeType,parents"}
         if remove_parents:
             params["removeParents"] = ",".join(remove_parents)
         data = self._patch(f"/files/{file_id}", params=params)
