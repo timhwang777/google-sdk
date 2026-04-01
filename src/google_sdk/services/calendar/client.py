@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 
 from google_sdk._pagination import PageIterator
+from google_sdk.exceptions import NotFoundError
 from google_sdk.services._base import CALENDAR_API_VERSION, BaseService
 from google_sdk.services.calendar.models import (
     Calendar,
@@ -36,6 +37,13 @@ class CalendarService(BaseService):
 
     def get_calendar(self, calendar_id: str = "primary") -> Calendar:
         data = self._get(f"/calendars/{calendar_id}")
+        if data.get("deleted"):
+            raise NotFoundError(
+                f"Calendar {calendar_id} has been deleted",
+                status_code=404,
+                errors=[],
+                request_id=None,
+            )
         return self._parse(data, Calendar)
 
     def create_calendar(self, summary: str, **kwargs) -> Calendar:
@@ -82,6 +90,13 @@ class CalendarService(BaseService):
 
     def get_event(self, calendar_id: str, event_id: str) -> Event:
         data = self._get(f"/calendars/{calendar_id}/events/{event_id}")
+        if data.get("status") == "cancelled":
+            raise NotFoundError(
+                f"Event {event_id} has been deleted",
+                status_code=404,
+                errors=[],
+                request_id=None,
+            )
         return self._parse(data, Event)
 
     def create_event(self, calendar_id: str = "primary", **kwargs) -> Event:

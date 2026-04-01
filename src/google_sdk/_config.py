@@ -18,7 +18,7 @@ class RetryConfig:
 class SDKConfig:
     """Global SDK configuration."""
 
-    timeout: float = 30.0
+    timeout: float = 120.0
     max_retries: int = 3
     max_backoff: float = 60.0
     rate_limit_per_second: float | None = None
