@@ -19,6 +19,7 @@ class File(BaseResource):
     modified_time: datetime | None = Field(None, alias="modifiedTime")
     parents: list[str] | None = None
     web_view_link: str | None = Field(None, alias="webViewLink")
+    web_content_link: str | None = Field(None, alias="webContentLink")
     trashed: bool = False
 
 

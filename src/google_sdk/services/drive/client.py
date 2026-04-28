@@ -68,6 +68,7 @@ class DriveService(BaseService):
         content: bytes | BinaryIO | None = None,
         mime_type: str | None = None,
         parents: list[str] | None = None,
+        fields: str | None = None,
         resumable: bool | None = None,
         on_progress: Callable[[UploadProgress], None] | None = None,
     ) -> File:
@@ -83,7 +84,8 @@ class DriveService(BaseService):
 
         if content is None:
             # Metadata-only file
-            data = self._post("/files", json=metadata)
+            params = {"fields": fields} if fields else None
+            data = self._post("/files", json=metadata, params=params)
             return self._parse(data, File)
 
         # Determine upload strategy
@@ -107,6 +109,7 @@ class DriveService(BaseService):
                 metadata=metadata,
                 on_progress=on_progress,
                 timeout=self._config.timeout,
+                fields=fields,
             )
             return upload.execute()
         else:
@@ -129,9 +132,12 @@ class DriveService(BaseService):
                 **self._get_headers(),
                 "Content-Type": f"multipart/related; boundary={boundary}",
             }
+            upload_url = f"{_UPLOAD_BASE}?uploadType=multipart"
+            if fields:
+                upload_url += f"&fields={fields}"
             with httpx.Client(timeout=self._config.timeout) as client:
                 resp = client.post(
-                    f"{_UPLOAD_BASE}?uploadType=multipart",
+                    upload_url,
                     content=body,
                     headers=headers,
                 )
@@ -229,6 +235,49 @@ class DriveService(BaseService):
             metadata["parents"] = parents
         data = self._post("/files", json=metadata)
         return self._parse(data, Folder)
+
+    def find_folder(
+        self,
+        name: str,
+        *,
+        parent_id: str | None = None,
+    ) -> Folder | None:
+        """Find a folder by name (and optionally parent), returning None if missing."""
+        safe_name = name.replace("\\", "\\\\").replace("'", "\\'")
+        clauses = [
+            f"name = '{safe_name}'",
+            "mimeType = 'application/vnd.google-apps.folder'",
+            "trashed = false",
+        ]
+        if parent_id:
+            clauses.append(f"'{parent_id}' in parents")
+        params = {
+            "q": " and ".join(clauses),
+            "pageSize": 1,
+            "fields": "files(id,name,mimeType,parents)",
+        }
+        data = self._get("/files", params=params)
+        files = data.get("files") or []
+        if not files:
+            return None
+        return self._parse(files[0], Folder)
+
+    def get_or_create_folder(
+        self,
+        name: str,
+        *,
+        parent_id: str | None = None,
+    ) -> Folder:
+        """Return an existing folder by name, creating it if absent."""
+        existing = self.find_folder(name, parent_id=parent_id)
+        if existing is not None:
+            return existing
+        parents = [parent_id] if parent_id else None
+        created = self.create_folder(name, parents=parents)
+        # create_folder parses through Folder at runtime even though it's typed File.
+        if isinstance(created, Folder):
+            return created
+        return Folder.model_validate(created.model_dump(by_alias=True))
 
     # ── Permission operations ────────────────────────────────────────────────
 

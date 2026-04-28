@@ -154,6 +154,47 @@ def test_create_file_forced_simple_upload():
     MockUpload.assert_not_called()
 
 
+# ── create_file fields parameter ─────────────────────────────────────────────
+
+
+@respx.mock
+def test_create_file_metadata_only_with_fields():
+    """fields= is forwarded to the metadata-only POST as a query param."""
+    fields = "id,name,webViewLink,webContentLink"
+    route = respx.post(f"{_API_BASE}/files").mock(
+        return_value=httpx.Response(200, json=FILE_DATA)
+    )
+    svc = make_service()
+    svc.create_file("test.txt", fields=fields)
+    assert route.calls.last.request.url.params["fields"] == fields
+
+
+@respx.mock
+def test_create_file_simple_upload_appends_fields():
+    """Multipart upload URL includes fields= when supplied."""
+    fields = "id,name,webContentLink"
+    route = respx.post(f"{_UPLOAD_BASE}?uploadType=multipart&fields={fields}").mock(
+        return_value=httpx.Response(200, json=FILE_DATA)
+    )
+    svc = make_service()
+    svc.create_file("test.txt", content=b"hi", mime_type="text/plain", fields=fields)
+    assert route.called
+
+
+@respx.mock
+def test_create_file_resumable_passes_fields_through():
+    """fields= is forwarded into ResumableUpload(...) for large files."""
+    svc = make_service()
+    big_content = b"x" * (5 * 1024 * 1024 + 1)
+    fields = "id,name,webContentLink"
+    with patch("google_sdk.services.drive.client.ResumableUpload") as MockUpload:
+        mock_instance = MagicMock()
+        mock_instance.execute.return_value = MagicMock(spec=File)
+        MockUpload.return_value = mock_instance
+        svc.create_file("big.bin", content=big_content, fields=fields)
+    assert MockUpload.call_args.kwargs["fields"] == fields
+
+
 # ── download_file with destination ──────────────────────────────────────────
 
 

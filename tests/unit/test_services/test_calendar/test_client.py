@@ -188,7 +188,7 @@ def test_get_event():
 
 @respx.mock
 def test_create_event():
-    respx.post(f"{_API_BASE}/calendars/primary/events").mock(
+    route = respx.post(f"{_API_BASE}/calendars/primary/events").mock(
         return_value=httpx.Response(200, json=EVENT_DATA)
     )
     svc = make_service()
@@ -199,6 +199,25 @@ def test_create_event():
     )
     assert isinstance(event, Event)
     assert event.id == "event1"
+    # No new params -> no query string sent.
+    assert route.calls.last.request.url.query == b""
+
+
+@respx.mock
+def test_create_event_with_conference_and_send_updates():
+    route = respx.post(f"{_API_BASE}/calendars/primary/events").mock(
+        return_value=httpx.Response(200, json=EVENT_DATA)
+    )
+    svc = make_service()
+    svc.create_event(
+        conference_data_version=1,
+        send_updates="all",
+        summary="Team Meeting",
+        conferenceData={"createRequest": {"requestId": "abc"}},
+    )
+    qs = route.calls.last.request.url.params
+    assert qs["conferenceDataVersion"] == "1"
+    assert qs["sendUpdates"] == "all"
 
 
 @respx.mock

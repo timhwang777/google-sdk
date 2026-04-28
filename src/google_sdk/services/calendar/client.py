@@ -92,8 +92,24 @@ class CalendarService(BaseService):
             )
         return self._parse(data, Event)
 
-    def create_event(self, calendar_id: str = "primary", **kwargs) -> Event:
-        data = self._post(f"/calendars/{calendar_id}/events", json=kwargs)
+    def create_event(
+        self,
+        calendar_id: str = "primary",
+        *,
+        conference_data_version: int | None = None,
+        send_updates: str | None = None,
+        **kwargs,
+    ) -> Event:
+        params: dict = {}
+        if conference_data_version is not None:
+            params["conferenceDataVersion"] = conference_data_version
+        if send_updates is not None:
+            params["sendUpdates"] = send_updates
+        data = self._post(
+            f"/calendars/{calendar_id}/events",
+            json=kwargs,
+            params=params or None,
+        )
         return self._parse(data, Event)
 
     def quick_add(self, text: str, *, calendar_id: str = "primary") -> Event:

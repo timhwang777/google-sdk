@@ -18,12 +18,19 @@ def test_file_alias_mapping():
         "createdTime": "2026-01-01T00:00:00Z",
         "modifiedTime": "2026-01-02T00:00:00Z",
         "webViewLink": "https://drive.google.com/file/d/file1/view",
+        "webContentLink": "https://drive.google.com/uc?id=file1&export=download",
     }
     f = File.model_validate(data)
     assert f.id == "file1"
     assert f.mime_type == "application/pdf"
     assert f.created_time is not None
     assert f.web_view_link == "https://drive.google.com/file/d/file1/view"
+    assert f.web_content_link == "https://drive.google.com/uc?id=file1&export=download"
+
+
+def test_file_web_content_link_default_none():
+    f = File.model_validate({"id": "x", "name": "x"})
+    assert f.web_content_link is None
 
 
 def test_file_extra_field_acceptance():

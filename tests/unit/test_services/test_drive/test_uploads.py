@@ -89,6 +89,29 @@ def test_initiate_session_sends_auth_header():
     assert req.headers["Authorization"] == "Bearer fake_token"
 
 
+@respx.mock
+def test_initiate_session_appends_fields_param():
+    fields = "id,name,webViewLink,webContentLink"
+    route = respx.post(
+        f"{INITIATE_URL}&fields={fields}",
+    ).mock(return_value=httpx.Response(200, headers={"Location": SESSION_URI}))
+    upload = make_upload(content=b"hello", fields=fields)
+    uri = upload._initiate_session()
+    assert uri == SESSION_URI
+    assert route.called
+
+
+@respx.mock
+def test_initiate_session_no_fields_keeps_url_unchanged():
+    route = respx.post(INITIATE_URL).mock(
+        return_value=httpx.Response(200, headers={"Location": SESSION_URI})
+    )
+    upload = make_upload(content=b"hello")
+    upload._initiate_session()
+    assert route.called
+    assert b"fields=" not in route.calls.last.request.url.query
+
+
 # ── execute() — single chunk upload ─────────────────────────────────────────
 
 

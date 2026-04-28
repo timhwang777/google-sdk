@@ -24,6 +24,7 @@ import google.auth.credentials
 import google.auth.exceptions
 
 from google_sdk.auth.oauth import oauth
+from google_sdk.auth.refresh_token import credentials_from_refresh_token
 from google_sdk.auth.service_account import service_account
 from google_sdk.auth.token_store import EnvTokenStore, FileTokenStore, KeyringTokenStore, TokenStore
 from google_sdk.exceptions import AuthenticationError
@@ -33,6 +34,7 @@ logger = logging.getLogger("google_sdk.auth")
 __all__ = [
     "oauth",
     "service_account",
+    "credentials_from_refresh_token",
     "resolve_credentials",
     "TokenStore",
     "FileTokenStore",

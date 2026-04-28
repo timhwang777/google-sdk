@@ -30,6 +30,7 @@ class ResumableUpload:
         metadata: dict,
         on_progress: Callable[[UploadProgress], None] | None = None,
         timeout: float = 30.0,
+        fields: str | None = None,
     ) -> None:
         self._upload_url = url
         self._auth_headers = headers
@@ -38,6 +39,7 @@ class ResumableUpload:
         self._metadata = metadata
         self._on_progress = on_progress
         self._timeout = timeout
+        self._fields = fields
 
         if isinstance(content, bytes):
             self._content = BytesIO(content)
@@ -58,9 +60,13 @@ class ResumableUpload:
             "X-Upload-Content-Type": self._mime_type,
             "X-Upload-Content-Length": str(self._total_bytes),
         }
+        url = self._upload_url
+        if self._fields:
+            sep = "&" if "?" in url else "?"
+            url = f"{url}{sep}fields={self._fields}"
         with httpx.Client(timeout=self._timeout) as client:
             resp = client.post(
-                self._upload_url,
+                url,
                 headers=headers,
                 content=json.dumps(self._metadata).encode(),
             )

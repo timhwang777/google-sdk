@@ -159,3 +159,93 @@ def test_delete_permission():
     )
     svc = make_service()
     svc.delete_permission("file1", "perm1")  # Should not raise
+
+
+# ── Folder lookup helpers ────────────────────────────────────────────────────
+
+FOLDER_DATA = {
+    "id": "fold1",
+    "name": "MyFolder",
+    "mimeType": "application/vnd.google-apps.folder",
+    "parents": ["root"],
+}
+
+
+@respx.mock
+def test_find_folder_returns_match():
+    route = respx.get(f"{_API_BASE}/files").mock(
+        return_value=httpx.Response(200, json={"files": [FOLDER_DATA]})
+    )
+    svc = make_service()
+    folder = svc.find_folder("MyFolder")
+    assert isinstance(folder, Folder)
+    assert folder.id == "fold1"
+    q = route.calls.last.request.url.params["q"]
+    assert "name = 'MyFolder'" in q
+    assert "mimeType = 'application/vnd.google-apps.folder'" in q
+    assert "trashed = false" in q
+    assert "in parents" not in q
+
+
+@respx.mock
+def test_find_folder_returns_none_when_missing():
+    respx.get(f"{_API_BASE}/files").mock(
+        return_value=httpx.Response(200, json={"files": []})
+    )
+    svc = make_service()
+    assert svc.find_folder("Nope") is None
+
+
+@respx.mock
+def test_find_folder_filters_by_parent():
+    route = respx.get(f"{_API_BASE}/files").mock(
+        return_value=httpx.Response(200, json={"files": [FOLDER_DATA]})
+    )
+    svc = make_service()
+    svc.find_folder("MyFolder", parent_id="parent123")
+    q = route.calls.last.request.url.params["q"]
+    assert "'parent123' in parents" in q
+
+
+@respx.mock
+def test_find_folder_escapes_single_quotes_in_name():
+    route = respx.get(f"{_API_BASE}/files").mock(
+        return_value=httpx.Response(200, json={"files": []})
+    )
+    svc = make_service()
+    svc.find_folder("a'b")
+    q = route.calls.last.request.url.params["q"]
+    assert "name = 'a\\'b'" in q
+
+
+@respx.mock
+def test_get_or_create_folder_returns_existing():
+    """When a folder already exists, no POST is issued."""
+    list_route = respx.get(f"{_API_BASE}/files").mock(
+        return_value=httpx.Response(200, json={"files": [FOLDER_DATA]})
+    )
+    create_route = respx.post(f"{_API_BASE}/files").mock(
+        return_value=httpx.Response(200, json=FOLDER_DATA)
+    )
+    svc = make_service()
+    folder = svc.get_or_create_folder("MyFolder")
+    assert folder.id == "fold1"
+    assert list_route.called
+    assert not create_route.called
+
+
+@respx.mock
+def test_get_or_create_folder_creates_when_missing():
+    respx.get(f"{_API_BASE}/files").mock(
+        return_value=httpx.Response(200, json={"files": []})
+    )
+    create_route = respx.post(f"{_API_BASE}/files").mock(
+        return_value=httpx.Response(200, json=FOLDER_DATA)
+    )
+    svc = make_service()
+    folder = svc.get_or_create_folder("MyFolder", parent_id="parent123")
+    assert isinstance(folder, Folder)
+    assert folder.id == "fold1"
+    assert create_route.called
+    body = create_route.calls.last.request.read()
+    assert b'"parents":["parent123"]' in body
