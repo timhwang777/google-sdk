@@ -37,13 +37,6 @@ class CalendarService(BaseService):
 
     def get_calendar(self, calendar_id: str = "primary") -> Calendar:
         data = self._get(f"/calendars/{calendar_id}")
-        if data.get("deleted"):
-            raise NotFoundError(
-                f"Calendar {calendar_id} has been deleted",
-                status_code=404,
-                errors=[],
-                request_id=None,
-            )
         return self._parse(data, Calendar)
 
     def create_calendar(self, summary: str, **kwargs) -> Calendar:
