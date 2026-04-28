@@ -19,7 +19,7 @@ def test_retry_config_custom():
 
 def test_sdk_config_defaults():
     cfg = SDKConfig()
-    assert cfg.timeout == 30.0
+    assert cfg.timeout == 120.0
     assert cfg.max_retries == 3
     assert cfg.max_backoff == 60.0
     assert cfg.rate_limit_per_second is None
